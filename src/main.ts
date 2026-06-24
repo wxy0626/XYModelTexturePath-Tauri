@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, PhysicalSize } from "@tauri-apps/api/window";
 import { open } from "@tauri-apps/plugin-dialog";
 import "./styles.css";
 
@@ -29,10 +29,16 @@ type SavedSettings = {
   autoBackup?: boolean;
   showFullPath?: boolean;
   columnWidths?: Record<string, number[]>;
+  windowSize?: {
+    width: number;
+    height: number;
+  };
 };
 
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const SETTINGS_KEY = "xy-model-texture-path-settings-v1";
+const MIN_WINDOW_WIDTH = 1040;
+const MIN_WINDOW_HEIGHT = 860;
 
 app.innerHTML = [
   '<main class="app-shell">',
@@ -92,6 +98,8 @@ const previewBody = byId<HTMLTableSectionElement>("preview-body");
 const logBox = byId<HTMLTextAreaElement>("log");
 
 let models: ModelFile[] = [];
+let savedWindowSize: SavedSettings["windowSize"];
+let windowSizeSaveTimer: number | undefined;
 
 function byId<T extends HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
@@ -142,6 +150,7 @@ function saveSettings() {
     trimResource: trimResource.checked,
     autoBackup: autoBackup.checked,
     showFullPath: showFullPath.checked,
+    windowSize: savedWindowSize,
     columnWidths: {
       "models-table": tableColumnWidths("models-table"),
       "preview-table": tableColumnWidths("preview-table")
@@ -150,7 +159,46 @@ function saveSettings() {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
 }
 
-function loadSettings() {
+function isValidWindowSize(size: SavedSettings["windowSize"]): size is { width: number; height: number } {
+  return Boolean(
+    size &&
+    Number.isFinite(size.width) &&
+    Number.isFinite(size.height) &&
+    size.width >= MIN_WINDOW_WIDTH &&
+    size.height >= MIN_WINDOW_HEIGHT
+  );
+}
+
+async function restoreWindowSize(size: SavedSettings["windowSize"]) {
+  if (!isValidWindowSize(size)) return;
+  savedWindowSize = {
+    width: Math.round(size.width),
+    height: Math.round(size.height)
+  };
+  try {
+    await appWindow.setSize(new PhysicalSize(savedWindowSize.width, savedWindowSize.height));
+  } catch (error) {
+    console.warn("restore window size failed", error);
+  }
+}
+
+function setupWindowSizePersistence() {
+  void appWindow.onResized(({ payload }) => {
+    savedWindowSize = {
+      width: Math.round(payload.width),
+      height: Math.round(payload.height)
+    };
+    if (windowSizeSaveTimer !== undefined) {
+      window.clearTimeout(windowSizeSaveTimer);
+    }
+    windowSizeSaveTimer = window.setTimeout(() => {
+      windowSizeSaveTimer = undefined;
+      saveSettings();
+    }, 250);
+  });
+}
+
+async function loadSettings() {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (!raw) return;
@@ -161,6 +209,7 @@ function loadSettings() {
     if (typeof settings.trimResource === "boolean") trimResource.checked = settings.trimResource;
     if (typeof settings.autoBackup === "boolean") autoBackup.checked = settings.autoBackup;
     if (typeof settings.showFullPath === "boolean") showFullPath.checked = settings.showFullPath;
+    await restoreWindowSize(settings.windowSize);
     requestAnimationFrame(() => {
       applyTableColumnWidths("models-table", settings.columnWidths?.["models-table"]);
       applyTableColumnWidths("preview-table", settings.columnWidths?.["preview-table"]);
@@ -382,5 +431,6 @@ void appWindow.onDragDropEvent((event) => {
   }
 });
 
-loadSettings();
+setupWindowSizePersistence();
+void loadSettings();
 setupColumnResizers();
