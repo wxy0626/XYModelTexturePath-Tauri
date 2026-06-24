@@ -1,0 +1,14 @@
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+*.exe
+*.dll
+*.msi
+*.zip
+*.7z
+
+.DS_Store
+Thumbs.db
+*.log

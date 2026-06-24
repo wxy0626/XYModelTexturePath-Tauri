@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "XY快速修改模型贴图路径",
+  "version": "0.1.0",
+  "identifier": "com.xy.model-texture-path",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "XY快速修改模型贴图路径",
+        "width": 1180,
+        "height": 900,
+        "minWidth": 1040,
+        "minHeight": 860
+      }
+    ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": ["icons/icon.ico"]
+  }
+}
